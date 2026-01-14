@@ -69,3 +69,6 @@ SOCKET udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 int reuse = 1;
 setsockopt(udpSocket, SOL_SOCKET, SO_REUSEADDR,
     (char*)&reuse, sizeof(reuse));
+
+InetPtonA(AF_INET, "192.168.0.255", &addr.sin_addr);
+
