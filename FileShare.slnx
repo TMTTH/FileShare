@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="FileShare.vcxproj" Id="55b4e0b2-429a-4602-a342-20393a7c5818" />
+</Solution>
