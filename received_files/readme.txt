@@ -4,71 +4,34 @@ std::string NetworkClient::DiscoverServer()
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
         return {};
 
-    SOCKET udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (udpSocket == INVALID_SOCKET) {
-        WSACleanup();
-        return {};
-    }
+    std::string base = "192.168.0.";   // твоя подсеть
 
-    // Разрешаем broadcast
-    int broadcast = 1;
-    setsockopt(udpSocket, SOL_SOCKET, SO_BROADCAST,
-        (char*)&broadcast, sizeof(broadcast));
+    for (int i = 1; i <= 254; i++) {
+        std::string ip = base + std::to_string(i);
 
-    // ОБЯЗАТЕЛЬНО биндим сокет
-    sockaddr_in localAddr{};
-    localAddr.sin_family = AF_INET;
-    localAddr.sin_port = htons(0);              // любой свободный порт
-    localAddr.sin_addr.s_addr = INADDR_ANY;
+        SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (s == INVALID_SOCKET)
+            continue;
 
-    if (bind(udpSocket, (sockaddr*)&localAddr, sizeof(localAddr)) == SOCKET_ERROR) {
-        closesocket(udpSocket);
-        WSACleanup();
-        return {};
-    }
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(5555);
+        InetPtonA(AF_INET, ip.c_str(), &addr.sin_addr);
 
-    // Адрес широковещания
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(DISCOVERY_PORT);
-    addr.sin_addr.s_addr = INADDR_BROADCAST;
+        // маленький таймаут, чтобы не тормозило
+        int timeout = 200;
+        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+        setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
 
-    const char* msg = "FILESERVE_DISCOVERY";
-    sendto(udpSocket, msg, (int)strlen(msg), 0,
-        (sockaddr*)&addr, sizeof(addr));
-
-    // Таймаут ожидания ответа
-    int timeout = 3000;
-    setsockopt(udpSocket, SOL_SOCKET, SO_RCVTIMEO,
-        (char*)&timeout, sizeof(timeout));
-
-    char buffer[128]{};
-    sockaddr_in from{};
-    int fromLen = sizeof(from);
-
-    int len = recvfrom(udpSocket, buffer, sizeof(buffer) - 1, 0,
-        (sockaddr*)&from, &fromLen);
-
-    std::string result;
-    if (len > 0) {
-        buffer[len] = '\0';
-        if (strcmp(buffer, "FILESERVE_OK") == 0) {
-            char ip[32]{};
-            inet_ntop(AF_INET, &from.sin_addr, ip, sizeof(ip));
-            result = ip;
+        if (connect(s, (sockaddr*)&addr, sizeof(addr)) == 0) {
+            closesocket(s);
+            WSACleanup();
+            return ip;   // НАШЛИ сервер
         }
+
+        closesocket(s);
     }
 
-    closesocket(udpSocket);
     WSACleanup();
-    return result;
+    return {};
 }
-
-SOCKET udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-int reuse = 1;
-setsockopt(udpSocket, SOL_SOCKET, SO_REUSEADDR,
-    (char*)&reuse, sizeof(reuse));
-
-InetPtonA(AF_INET, "192.168.0.255", &addr.sin_addr);
-
